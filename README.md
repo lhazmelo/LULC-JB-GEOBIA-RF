@@ -28,20 +28,6 @@ Este projeto resolve essa limitação adotando:
  
 ![Matriz de Confusão](docs/Matriz_Confusao.png)
 
----
-
-# Atributos Extraídos por Superpixel
-
-| Categoria | Variáveis | Finalidade Metodológica |
-
-| **Estruturais (LiDAR)** | `chm_mean`, `chm_std`, `tri_mean`, `tri_std` | Separação altimétrica entre estratos arbóreo, arbustivo e rasteiro. |
-| **Topográficos** | `mdt_mean`, `tpi_mean` | Identificação de cotas relativas e depressões locais (Weiss, 2001). |
-| **Refletância Ativa** | `int_mean`, `int_std` | Discriminação de alvos antrópicos impermeáveis vs. corpos d'água. |
-| **Radiométricos (RGB)** | `r_mean`, `g_mean`, `b_mean` | Médias radiométricas da ortofoto ortorretificada. |
-| **Índices Espectrais** | `vari_mean`, `indice_agu` (NGBDI) | Vigor vegetativo sem NIR (Gitelson et al., 2002) e realce hídrico (Xu et al., 2019). |
-| **Geometria / Forma** | `circularidade` | Índice de compacidade/Gestalt para auxiliar na geometria dos alvos. |
-
----
 
 ## Fluxo de Execução do Pipeline (`lulc.py`)
 

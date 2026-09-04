@@ -2,6 +2,7 @@ geopandas
 rasterio
 rasterstats
 scikit-learn
-matplotlib & seaborn
+matplotlib
+seaborn
 tqdm
 openpyxl

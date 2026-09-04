@@ -1,5 +1,4 @@
 """
-
 Pipeline em Python para classificação da cobertura da terra (LULC) por GEOBIA
 + Random Forest, integrando dados ópticos (ortofoto RGB) e estruturais (LiDAR
 aerotransportado). Desenvolvido para o mapeamento da área CLOUD7, no Jardim

@@ -1,2 +1,58 @@
-# LULC-JB-GEOBIA-RF
-Mapa LULC do Jardim Botânico da UFRRJ usando o método GEOBIA com Random Forest.
+# Classificação LULC com GEOBIA, LiDAR e Random Forest
+
+Pipeline automatizado em Python para classificação do Uso e Cobertura da Terra (LULC) integrando dados ópticos de alta resolução (ortofoto RGB) e dados estruturais tridimensionais (LiDAR aerotransportado) através de Análise de Imagens Baseada em Objetos Geográficos (GEOBIA).
+
+> **Área de Estudo:** Setor CLOUD7 — Jardim Botânico da UFRRJ (Seropédica/RJ)  
+> **Sensor:** DJI Zenmuse L2 embarcado em ARP DJI Matrice 350 RTK  
+> **Acurácia Global:** 92,38% | **Índice Kappa:** 0,911
+
+---
+
+#Visão Geral do Projeto
+
+A classificação da cobertura da terra em zonas de transição urbano-vegetal sofre com ambiguidades espectrais no pixel-a-pixel tradicional (ex.: confusão entre copas de árvores e gramíneas, ou asfalto e corpos d'água). 
+
+Este projeto resolve essa limitação adotando:
+1. **GEOBIA (Mean-Shift via Orfeo ToolBox):** Segmentação da ortofoto em superpixels para respeitar o contexto espacial.
+2. **Fusão Multissensor:** Atributos tridimensionais de dossel (CHM), microrrelevo (TRI, TPI) e refletância ativa (Intensidade LiDAR) combinados a índices espectrais ópticos (VARI, NGBDI) e métricas de forma (circularidade).
+3. **Random Forest com Filtro Físico:** Aprendizado supervisionado balanceado associado a regras de pós-classificação altimétrica (remoção de falsos positivos em telhados).
+
+---
+
+# Resultados e Visualização
+
+| Ortofoto e Mapa Classificado | Matriz de Confusão |
+| :---: | :---: |
+| ![Mapa Final](docs/mapa_lulc.png) | ![Matriz de Confusão](docs/matriz_confusao.png) |
+
+---
+
+# Atributos Extraídos por Superpixel
+
+| Categoria | Variáveis | Finalidade Metodológica |
+
+| **Estruturais (LiDAR)** | `chm_mean`, `chm_std`, `tri_mean`, `tri_std` | Separação altimétrica entre estratos arbóreo, arbustivo e rasteiro. |
+| **Topográficos** | `mdt_mean`, `tpi_mean` | Identificação de cotas relativas e depressões locais (Weiss, 2001). |
+| **Refletância Ativa** | `int_mean`, `int_std` | Discriminação de alvos antrópicos impermeáveis vs. corpos d'água. |
+| **Radiométricos (RGB)** | `r_mean`, `g_mean`, `b_mean` | Médias radiométricas da ortofoto ortorretificada. |
+| **Índices Espectrais** | `vari_mean`, `indice_agu` (NGBDI) | Vigor vegetativo sem NIR (Gitelson et al., 2002) e realce hídrico (Xu et al., 2019). |
+| **Geometria / Forma** | `circularidade` | Índice de compacidade/Gestalt para auxiliar na geometria dos alvos. |
+
+---
+
+## Fluxo de Execução do Pipeline (`lulc.py`)
+
+O módulo foi estruturado em funções sequenciais e independentes:
+
+1. **`propriedades(...)`**  
+   Extrai as estatísticas zonais de todos os rasters para o vetor de superpixels, gerando o GeoPackage enriquecido.
+2. **`rf1(...)`**  
+   Cruza as amostras de treino, ajusta o `RandomForestClassifier`, avalia a incerteza espacial (`predict_proba`), aplica o filtro físico altimétrico e gera o vetor final classificado.
+3. **`vetor_tif(...)`**  
+   Converte o resultado vetorial em raster GeoTIFF alinhado geometricamente com a grade original do LiDAR (CHM).
+4. **`estatisticas(...)`**  
+   Gera o relatório de auditoria e métricas (Precision, Recall, F1-Score, Kappa) em Excel e plota a matriz de confusão.
+5. **`calcular_areas_finais(...)`**  
+   Calcula a área planimétrica (m² e hectares) e o percentual de ocupação territorial de cada macroclasse no mapa final.
+
+---

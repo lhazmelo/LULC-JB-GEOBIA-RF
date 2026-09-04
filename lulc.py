@@ -1,6 +1,4 @@
 """
-lulc.py
-=======
 
 Pipeline em Python para classificação da cobertura da terra (LULC) por GEOBIA
 + Random Forest, integrando dados ópticos (ortofoto RGB) e estruturais (LiDAR
@@ -325,8 +323,7 @@ def propriedades(
     # execução é aceitável; em mosaicos muito maiores, o mesmo resultado pode
     # ser obtido de forma mais rápida usando o índice espacial do
     # GeoDataFrame (`gdf_final.sindex.query(geom, predicate="touches")`) para
-    # pré-filtrar os candidatos antes de aplicar `.touches()`. Não alterei
-    # essa lógica aqui para não arriscar mudar o resultado já validado.
+    # pré-filtrar os candidatos antes de aplicar `.touches()`.
     altitudes_vizinhas = []
     for indice, linha in tqdm(gdf_final.iterrows(), total=len(gdf_final), desc="TPI (Vizinhança)"):
         vizinhos = gdf_final[gdf_final.geometry.touches(linha['geometry'])]

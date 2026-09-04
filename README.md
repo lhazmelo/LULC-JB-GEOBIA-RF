@@ -21,12 +21,12 @@ Este projeto resolve essa limitação adotando:
 
 # Resultados e Visualização
 
-| Carta Imagem | 
-| ![Carta Imagem](docs/CartaImagem_retrato.png) |
-| Mapa LULC | 
-|![Mapa LULC](docs/LULC_retrato.png) |
-| Matriz de Confusão | 
-|![Matriz de Confusão](docs/Matriz_Confusao.png) |
+
+![Carta Imagem](docs/CartaImagem_retrato.png)
+ 
+![Mapa LULC](docs/LULC_retrato.png)
+ 
+![Matriz de Confusão](docs/Matriz_Confusao.png)
 
 ---
 

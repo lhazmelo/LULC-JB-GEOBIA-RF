@@ -21,9 +21,9 @@ Este projeto resolve essa limitação adotando:
 
 # Resultados e Visualização
 
-| Ortofoto e Mapa Classificado | Matriz de Confusão |
+| Carta Imagem | Mapa LULC| Matriz de Confusão |
 | :---: | :---: |
-| ![Mapa Final](docs/mapa_lulc.png) | ![Matriz de Confusão](docs/matriz_confusao.png) |
+| ![Carta Imagem](docs/CartaImagem_retrato.png) | ![Mapa LULC](docs/LULC_retrato.png) | ![Matriz de Confusão](docs/Matriz_Confusao.png) |
 
 ---
 

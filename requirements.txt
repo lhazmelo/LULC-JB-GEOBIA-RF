@@ -1,0 +1,7 @@
+geopandas
+rasterio
+rasterstats
+scikit-learn
+matplotlib & seaborn
+tqdm
+openpyxl

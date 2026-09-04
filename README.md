@@ -8,7 +8,7 @@ Pipeline automatizado em Python para classificação do Uso e Cobertura da Terra
 
 ---
 
-#Visão Geral do Projeto
+# Visão Geral do Projeto
 
 A classificação da cobertura da terra em zonas de transição urbano-vegetal sofre com ambiguidades espectrais no pixel-a-pixel tradicional (ex.: confusão entre copas de árvores e gramíneas, ou asfalto e corpos d'água). 
 

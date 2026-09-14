@@ -52,9 +52,7 @@ repositório; ela não é executada por `lulc.py`.
 Após a rasterização, foi adotada uma Unidade Mapeável Mínima (UMM) de 1 m².
 O limiar do Crivo foi convertido para pixels pela relação:
 
-$
-\text{limiar em pixels} = \frac{\text{UMM}}{\text{GSD}^2}
-$
+**Limiar em pixels = UMM / GSD²**
 
 Com GSD de 0,0541 m, o cálculo resulta em aproximadamente 342 pixels. No
 processamento foi usado o valor prático de 350 pixels, com conectividade de

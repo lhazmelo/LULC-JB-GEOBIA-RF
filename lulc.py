@@ -38,7 +38,6 @@ etapas anteriores do QGIS/DJI Terra:
        -> gera a planilha de áreas por classe.
 """
 
-import warnings
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import geopandas as gpd
@@ -57,6 +56,100 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 from tqdm import tqdm
+
+
+def _validar_crs_metrico(gdf: gpd.GeoDataFrame, operacao: str) -> None:
+    """Garante que cálculos geométricos usem um CRS projetado em metros."""
+    crs = gdf.crs
+
+    if crs is None:
+        raise ValueError(
+            f"A operação '{operacao}' exige um CRS definido, projetado e em metros."
+        )
+
+    if not crs.is_projected:
+        raise ValueError(
+            f"A operação '{operacao}' exige um CRS projetado em metros; "
+            f"o dado está em {crs.to_string()}."
+        )
+
+    unidades = {
+        eixo.unit_name.lower()
+        for eixo in crs.axis_info
+        if eixo.unit_name is not None
+    }
+    unidades_metricas = {'metre', 'meter', 'metres', 'meters'}
+
+    if not unidades or not unidades.issubset(unidades_metricas):
+        unidades_texto = ', '.join(sorted(unidades)) or 'não informada'
+        raise ValueError(
+            f"A operação '{operacao}' exige unidades em metros; "
+            f"o CRS {crs.to_string()} usa: {unidades_texto}."
+        )
+
+
+def _atribuir_classes_treino(
+    gdf_super: gpd.GeoDataFrame,
+    gdf_treino: gpd.GeoDataFrame,
+    fracao_minima: float
+) -> gpd.GeoDataFrame:
+    """Seleciona a classe com maior cobertura em cada superpixel."""
+    if not 0 < fracao_minima <= 1:
+        raise ValueError("fracao_minima_treino deve estar no intervalo (0, 1].")
+
+    # Une os polígonos de uma mesma classe antes da interseção. Assim, áreas
+    # adjacentes com o mesmo rótulo contam como uma única cobertura.
+    treino_por_classe = gdf_treino[['id', 'geometry']].dissolve(
+        by='id',
+        as_index=False
+    )
+
+    intersecoes = gpd.overlay(
+        gdf_super[['id_superpixel', 'geometry']],
+        treino_por_classe,
+        how='intersection',
+        keep_geom_type=False
+    )
+    intersecoes = intersecoes[
+        intersecoes.geometry.notna() & ~intersecoes.geometry.is_empty
+    ].copy()
+    intersecoes['area_intersecao'] = intersecoes.geometry.area
+    intersecoes = intersecoes[intersecoes['area_intersecao'] > 0].copy()
+
+    if intersecoes.empty:
+        return gdf_super.iloc[0:0].assign(
+            id=pd.Series(dtype=gdf_treino['id'].dtype),
+            cobertura_treino_pct=pd.Series(dtype=float)
+        )
+
+    areas_super = (
+        gdf_super.set_index('id_superpixel').geometry.area.rename('area_superpixel')
+    )
+    intersecoes = intersecoes.join(areas_super, on='id_superpixel')
+    intersecoes['cobertura_treino_pct'] = (
+        intersecoes['area_intersecao'] / intersecoes['area_superpixel'] * 100
+    )
+
+    # Ordenação por área descendente torna a atribuição determinística. Em um
+    # empate exato, o menor código de classe é usado apenas como desempate.
+    rotulos = (
+        intersecoes
+        .sort_values(
+            ['id_superpixel', 'area_intersecao', 'id'],
+            ascending=[True, False, True]
+        )
+        .drop_duplicates(subset=['id_superpixel'])
+    )
+    rotulos = rotulos[
+        rotulos['cobertura_treino_pct'] >= fracao_minima * 100
+    ]
+
+    return gdf_super.merge(
+        rotulos[['id_superpixel', 'id', 'cobertura_treino_pct']],
+        on='id_superpixel',
+        how='inner',
+        validate='one_to_one'
+    )
 
 
 # =============================================================================
@@ -228,6 +321,7 @@ def propriedades(
     """
     print("1. Carregando o mosaico de superpixels...")
     gdf = gpd.read_file(saida_poligonos)
+    _validar_crs_metrico(gdf, "cálculo de área, perímetro e circularidade")
 
     # ==========================================
     # 2. ÍNDICE DE FORMA (CIRCULARIDADE / GESTALT)
@@ -356,7 +450,8 @@ def rf1(
     saida_com_atributos: str,
     caminho_treino: str,
     saida_mapa_obia: str,
-    caminho_grafico_imp: str
+    caminho_grafico_imp: str,
+    fracao_minima_treino: float = 0.5
 ) -> None:
     """
     Realiza o treinamento espacial, a classificação LULC via Random Forest e o
@@ -376,6 +471,9 @@ def rf1(
         saida_mapa_obia: Caminho de saída do mapa vetorial classificado.
         caminho_grafico_imp: Caminho de saída do gráfico de importância das
             variáveis.
+        fracao_minima_treino: Fração mínima do superpixel que deve ser coberta
+            pela classe de treinamento escolhida. Padrão: 0,5 (maioria da
+            área). Use um valor mais alto para selecionar amostras mais puras.
     """
 
     # =====================================================================
@@ -384,34 +482,45 @@ def rf1(
     print("Carregando os dados e cruzando mapas...")
     gdf_super = gpd.read_file(saida_com_atributos)
 
-    # Garante um identificador único e estável por superpixel, usado depois
-    # para remover duplicatas geradas pelo join espacial.
+    _validar_crs_metrico(gdf_super, "atribuição das amostras de treinamento")
+
+    # Garante um identificador único e estável por superpixel.
     if 'id_superpixel' not in gdf_super.columns:
         gdf_super['id_superpixel'] = gdf_super.index
 
+    if gdf_super['id_superpixel'].duplicated().any():
+        raise ValueError("A coluna 'id_superpixel' deve conter valores únicos.")
+
     gdf_treino = gpd.read_file(caminho_treino)
+
+    if 'id' not in gdf_treino.columns:
+        raise KeyError("O vetor de treinamento deve conter a coluna de classe 'id'.")
+
+    if gdf_treino.crs is None:
+        raise ValueError("O vetor de treinamento não possui CRS definido.")
 
     if gdf_treino.crs != gdf_super.crs:
         print(f"Corrigindo diferença de CRS: Convertendo Treino para {gdf_super.crs}...")
         gdf_treino = gdf_treino.to_crs(gdf_super.crs)
 
-    # Junção espacial: cada superpixel recebe a classe ('id') do polígono de
-    # treinamento com o qual ele intersecta.
-    superpixels_treinados = gpd.sjoin(
+    # Um superpixel pode cruzar mais de uma classe. A classe escolhida é a de
+    # maior área de interseção, e amostras sem cobertura mínima são excluídas.
+    superpixels_treinados = _atribuir_classes_treino(
         gdf_super,
-        gdf_treino[['id', 'geometry']],
-        how='inner',
-        predicate='intersects'
+        gdf_treino,
+        fracao_minima=fracao_minima_treino
     )
 
-    # Um superpixel pode intersectar mais de um polígono de treino na borda;
-    # mantém-se apenas uma ocorrência por superpixel para não duplicar amostras.
-    superpixels_treinados = superpixels_treinados.drop_duplicates(subset=['id_superpixel']).copy()
-
     if superpixels_treinados.empty:
-        raise ValueError("❌ ERRO GRAVE: Nenhum polígono de treinamento intersectou os superpixels!")
+        raise ValueError(
+            "Nenhum superpixel atingiu a cobertura mínima das amostras de "
+            "treinamento. Revise os dados ou reduza fracao_minima_treino."
+        )
 
-    print(f"✅ Sucesso! Identificados {len(superpixels_treinados)} superpixels de treinamento.")
+    print(
+        f"✅ Sucesso! Identificados {len(superpixels_treinados)} superpixels "
+        f"com cobertura mínima de {fracao_minima_treino:.0%}."
+    )
 
     # =====================================================================
     # 2. TREINAMENTO DO ALGORITMO RANDOM FOREST
@@ -450,10 +559,12 @@ def rf1(
     print("Classificando o mapa completo e extraindo incertezas...")
     X_total = gdf_super[colunas_atributos].fillna(0)
 
-    gdf_super['classe_predita'] = rf_model.predict(X_total)
+    gdf_super['classe_rf'] = rf_model.predict(X_total)
+    gdf_super['classe_predita'] = gdf_super['classe_rf']
 
-    # A confiança de cada predição é a maior probabilidade entre as classes;
-    # segmentos abaixo de 60% são sinalizados para revisão manual.
+    # Este valor é a maior fração de votos/probabilidade interna do RF. Ele é
+    # útil como indicador relativo de incerteza, mas não representa por si só
+    # uma probabilidade calibrada de acerto.
     probabilidades = rf_model.predict_proba(X_total)
     certeza_maxima = probabilidades.max(axis=1)
 
@@ -498,13 +609,21 @@ def rf1(
     # caso, é reclassificado como solo exposto e marcado como correção física
     # (não estatística).
     mascara_falso_telhado = (
-        (gdf_super['classe_predita'] == CLASSE_TELHADO) &
+        (gdf_super['classe_rf'] == CLASSE_TELHADO) &
         (gdf_super['chm_mean'] < ALTURA_MINIMA_TELHADO)
     )
 
+    gdf_super['correcao_fisica'] = False
+    gdf_super['motivo_correcao'] = ''
     gdf_super.loc[mascara_falso_telhado, 'classe_predita'] = CLASSE_SOLO_EXPOSTO
-    gdf_super.loc[mascara_falso_telhado, 'confianca_rf_pct'] = 100.0
-    gdf_super.loc[mascara_falso_telhado, 'alerta_incerteza'] = 'CORREÇÃO FÍSICA'
+    gdf_super.loc[mascara_falso_telhado, 'correcao_fisica'] = True
+    gdf_super.loc[
+        mascara_falso_telhado,
+        'motivo_correcao'
+    ] = 'Telhado com CHM abaixo de 1,5 m'
+
+    # A confiança e o alerta permanecem associados à predição original do RF;
+    # a decisão posterior fica registrada em campos próprios.
 
     print(f"Filtro aplicado! {mascara_falso_telhado.sum()} superpixels reclassificados de Telhado para Solo.")
 
@@ -513,7 +632,16 @@ def rf1(
     # =====================================================================
     print("\nSalvando o produto vetorial final...")
 
-    colunas_finais = ['id_superpixel', 'classe_predita', 'confianca_rf_pct', 'alerta_incerteza', 'geometry']
+    colunas_finais = [
+        'id_superpixel',
+        'classe_rf',
+        'classe_predita',
+        'confianca_rf_pct',
+        'alerta_incerteza',
+        'correcao_fisica',
+        'motivo_correcao',
+        'geometry'
+    ]
     gdf_final = gdf_super[colunas_finais].copy()
 
     gdf_final.to_file(saida_mapa_obia, driver="GPKG")
@@ -708,15 +836,9 @@ def calcular_areas_finais(
     # =====================================================================
     gdf = gpd.read_file(saida_mapa_obia)
 
-    # Verificação crítica: o cálculo geométrico exige coordenadas projetadas
-    # (ex.: UTM). Em graus decimais (WGS 84 puro), gdf.area retorna valores
-    # incorretos (graus², não m²).
-    if not gdf.crs.is_projected:
-        warnings.warn(
-            "ALERTA: O sistema de coordenadas não é projetado. "
-            "O cálculo de área resultará em graus e não em metros quadrados. "
-            "Certifique-se de que o dado original estava em UTM/SIRGAS 2000."
-        )
+    # Interrompe o processamento antes que graus² ou pés² sejam rotulados
+    # incorretamente como metros quadrados.
+    _validar_crs_metrico(gdf, "cálculo de áreas em m² e hectares")
 
     # Lógica defensiva para encontrar a coluna correta: aceita tanto a saída
     # de rf1() ('classe_predita') quanto um raster vetorizado manualmente no

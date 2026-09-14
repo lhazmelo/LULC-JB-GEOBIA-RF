@@ -216,11 +216,7 @@ def zonal_stats_com_progresso(
 # =============================================================================
 # FUNÇÕES DE APOIO — LEITURA DE RASTER + ESTATÍSTICA ZONAL (uso interno)
 # =============================================================================
-# As duas funções abaixo concentram um padrão que se repetia 4x (CHM, TRI,
-# Intensidade, MDT) e 5x (R, G, B, VARI, NGBDI) dentro de `propriedades()`:
-# abrir um raster (ou usar um array já calculado), rodar a estatística zonal e
-# renomear a(s) coluna(s) resultante(s). Extraí-las evita duplicação de código
-# sem alterar nenhum valor calculado.
+
 
 def _extrair_atributo_raster(
     gdf: gpd.GeoDataFrame,

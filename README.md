@@ -78,7 +78,7 @@ O valor `0` é reservado para fundo/`nodata` no raster final.
 
 - Python 3.10 ou superior;
 - QGIS com Orfeo ToolBox, para a preparação e segmentação;
-- DJI Terra, usado no processamento dos dados do levantamento;
+- DJI Terra, ou similares, usado no processamento dos dados do levantamento;
 - um ambiente geoespacial capaz de instalar GDAL/PROJ pelas dependências de
   GeoPandas e Rasterio.
 

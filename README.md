@@ -1,6 +1,6 @@
 # Classificação LULC com GEOBIA, LiDAR e Random Forest
 
-Pipeline automatizado em Python para classificação do Uso e Cobertura da Terra (LULC) integrando dados ópticos de alta resolução (ortofoto RGB) e dados estruturais tridimensionais (LiDAR aerotransportado) através de Análise de Imagens Baseada em Objetos Geográficos (GEOBIA).
+Pipeline semiautomatizado em Python para classificação do Uso e Cobertura da Terra (LULC) integrando dados ópticos de alta resolução (ortofoto RGB) e dados estruturais tridimensionais (LiDAR aerotransportado) através de Análise de Imagens Baseada em Objetos Geográficos (GEOBIA).
 
 > **Área de Estudo:** Setor CLOUD7 — Jardim Botânico da UFRRJ (Seropédica/RJ)  
 > **Sensor:** DJI Zenmuse L2 embarcado em ARP DJI Matrice 350 RTK  

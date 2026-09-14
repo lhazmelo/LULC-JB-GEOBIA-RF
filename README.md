@@ -1,6 +1,6 @@
 # Classificação LULC com GEOBIA, LiDAR e Random Forest
 
-Pipeline **semiautomatizado** para classificação do Uso e Cobertura da Terra
+Pipeline semiautomatizado para classificação do Uso e Cobertura da Terra
 (LULC), combinando ortofoto RGB, LiDAR aerotransportado, Análise de Imagens
 Baseada em Objetos Geográficos (GEOBIA) e Random Forest.
 
@@ -98,9 +98,12 @@ bibliotecas geoespaciais com Conda/Mamba antes de executar o `pip`.
 | Validação | CSV com `classe_real` e `classe_predita1` |
 
 Os vetores usados nos cálculos geométricos devem possuir CRS projetado com
-unidades em metros. Os insumos brutos e as amostras do estudo não integram
-este repositório; portanto, a reprodução integral dos números publicados exige
-acesso a esses dados.
+unidades em metros. 
+
+Os dados de entrada que esse presente trabalho utiliza não estão presentes 
+nesse repositório, sua reprodução, portanto não pode ser feita. É esperado
+que esse código funcione com outros dados de entrada, e gere estatísticas 
+parecidas com as reportadas aqui.
 
 ## Exemplo de execução
 

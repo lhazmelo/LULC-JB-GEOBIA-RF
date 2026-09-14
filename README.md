@@ -43,9 +43,6 @@ permitindo auditar separadamente a predição estatística e a correção físic
 6. validação com amostras de referência por `estatisticas(...)`;
 7. cálculo de áreas por classe com `calcular_areas_finais(...)`.
 
-A parte em Python começa com produtos previamente preparados no
-DJI Terra/QGIS. Por isso, o projeto é descrito como **semiautomatizado**.
-
 ## Classes
 
 | Código | Classe |

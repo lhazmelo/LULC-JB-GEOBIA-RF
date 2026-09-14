@@ -40,8 +40,27 @@ permitindo auditar separadamente a predição estatística e a correção físic
 4. seleção das amostras por maior sobreposição espacial e treinamento com
    `rf1(...)`;
 5. rasterização do mapa com `vetor_tif(...)`;
-6. validação com amostras de referência por `estatisticas(...)`;
-7. cálculo de áreas por classe com `calcular_areas_finais(...)`.
+6. pós-processamento do raster com o Crivo (Sieve) do GDAL, quando aplicável;
+7. validação com amostras de referência por `estatisticas(...)`;
+8. cálculo de áreas por classe com `calcular_areas_finais(...)`.
+
+A etapa 6 foi realizada no QGIS para o resultado apresentado neste
+repositório; ela não é executada por `lulc.py`.
+
+## Pós-processamento usado no mapeamento CLOUD7
+
+Após a rasterização, foi adotada uma Unidade Mapeável Mínima (UMM) de 1 m².
+O limiar do Crivo foi convertido para pixels pela relação:
+
+$
+\text{limiar em pixels} = \frac{\text{UMM}}{\text{GSD}^2}
+$
+
+Com GSD de 0,0541 m, o cálculo resulta em aproximadamente 342 pixels. No
+processamento foi usado o valor prático de 350 pixels, com conectividade de
+oito vizinhos. O Crivo generaliza regiões conectadas menores que esse limiar;
+por isso, deve ser aplicado antes de gerar as amostras de validação do produto
+final.
 
 ## Classes
 
@@ -95,12 +114,14 @@ bibliotecas geoespaciais com Conda/Mamba antes de executar o `pip`.
 | Validação | CSV com `classe_real` e `classe_predita1` |
 
 Os vetores usados nos cálculos geométricos devem possuir CRS projetado com
-unidades em metros. 
+unidades em metros.
 
-Os dados de entrada que esse presente trabalho utiliza não estão presentes 
-nesse repositório, sua reprodução, portanto não pode ser feita. É esperado
-que esse código funcione com outros dados de entrada, e gere estatísticas 
-parecidas com as reportadas aqui.
+Os dados usados no mapeamento CLOUD7 não estão versionados neste repositório;
+portanto, seus resultados numéricos não podem ser reproduzidos apenas com os
+arquivos aqui disponíveis. O código pode ser aplicado a outros dados
+compatíveis, mas as métricas dependerão da qualidade dos insumos, das amostras
+e do contexto espacial — não se espera necessariamente obter valores
+semelhantes aos reportados aqui.
 
 ## Exemplo de execução
 
@@ -176,13 +197,15 @@ necessariamente calibrada de acerto.
 ## Validação
 
 `estatisticas(...)` calcula precision, recall, F1-score, acurácia global,
-índice Kappa e matriz de confusão. O CSV é produzido após a amostragem
-aleatória estratificada e o cruzamento das amostras de referência com o raster
-classificado no QGIS.
+índice Kappa e matriz de confusão. No mapeamento CLOUD7, foram distribuídos
+30 pontos independentes em cada uma das sete classes, totalizando 210 amostras
+de validação. A classe de referência foi interpretada visualmente sobre a
+ortofoto de alta resolução, enquanto a classe predita foi extraída do raster
+pós-processado no QGIS.
 
-Os valores de 92,38% de acurácia global e 0,911 de Kappa correspondem ao estudo
-CLOUD7. Como os dados de validação não estão versionados aqui, esses números
-não podem ser recalculados apenas com o conteúdo deste repositório.
+Os valores de 92,38% de acurácia global e 0,911 de Kappa correspondem a esse
+desenho amostral. Como os dados de validação não estão versionados aqui, esses
+números não podem ser recalculados apenas com o conteúdo deste repositório.
 
 ## Limitações
 

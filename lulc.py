@@ -24,11 +24,11 @@ etapas anteriores do QGIS/DJI Terra:
     3. vetor_tif(...)
        Converte o mapa vetorial classificado em raster (.tif), usando a
        grade do CHM como referência geométrica.
-       -> gera o mapa matricial final (Raster_LULC).
+       -> gera o mapa matricial antes de eventuais filtros de generalização.
 
     4. estatisticas(...)
-       Valida a classificação a partir do CSV de amostras de campo
-       (amostragem aleatória estratificada), calculando matriz de
+       Valida a classificação a partir de um CSV de amostras de referência
+       independentes (amostragem aleatória estratificada), calculando matriz de
        confusão, acurácia global, F1/Recall/Precision e Índice Kappa.
        -> gera a tabela de métricas (Excel) e a imagem da matriz de confusão.
 
@@ -368,14 +368,15 @@ def propriedades(
         b_array[b_array == 0] = np.nan
 
         with np.errstate(divide='ignore', invalid='ignore'):
-            # VARI (Gitelson et al., 2002) — Equação 2 do trabalho:
-            # (G - R) / (G + R - B). Realça o vigor vegetativo mitigando
-            # ruído atmosférico.
+            # VARI = (G - R) / (G + R - B).
+            # Valores positivos indicam predominância relativa do verde no
+            # espectro visível e ajudam a distinguir cobertura vegetal.
             denominador_vari = g_array + r_array - b_array
             vari_array = np.where(denominador_vari != 0, (g_array - r_array) / denominador_vari, np.nan)
 
-            # NGBDI (Xu et al., 2019) — Equação 3 do trabalho:
-            # (G - B) / (G + B). Evidencia feições hídricas.
+            # NGBDI = (G - B) / (G + B).
+            # O contraste normalizado entre verde e azul auxilia a separação
+            # de feições hídricas no conjunto de atributos.
             denominador_agua = g_array + b_array
             indice_agua = np.where(denominador_agua != 0, (g_array - b_array) / denominador_agua, np.nan)
 
@@ -407,10 +408,10 @@ def propriedades(
     gdf_final['mdt_mean'] = gdf_final['mdt_mean'].fillna(media_geral_mdt)
 
     print("\nAnalisando o formato do terreno (Calculando TPI)...")
-    # TPI (Weiss, 2001) = altitude do segmento − altitude média dos segmentos
-    # vizinhos que compartilham fronteira. Valores
-    # positivos indicam relevo elevado em relação ao entorno (ex.: dossel
-    # arbóreo); valores negativos indicam depressões (ex.: corpos d'água).
+    # TPI = z0 - (1/n) * Σ(zi), em que z0 é a altitude média do segmento
+    # avaliado e zi representa a altitude média de cada um dos n segmentos
+    # vizinhos que compartilham fronteira. Valores positivos indicam posição
+    # elevada em relação ao entorno; valores negativos indicam depressões.
     #
     # Nota de performance: esta busca de vizinhança compara cada um dos N
     # segmentos com todos os outros N (O(N²)). Para a área CLOUD7 o tempo de
@@ -530,7 +531,8 @@ def rf1(
 
     # Variáveis preditoras: atributos LiDAR (CHM, TRI, Intensidade, MDT, TPI),
     # radiometria (R, G, B), índices espectrais (VARI, NGBDI) e forma
-    # (circularidade) — a combinação descrita na metodologia do trabalho.
+    # (circularidade), combinando informação espectral, estrutural,
+    # topográfica e geométrica.
     colunas_atributos: List[str] = [
         'chm_mean', 'chm_std', 'tri_mean', 'tri_std', 'r_mean',
         'g_mean', 'b_mean', 'vari_mean', 'indice_agu',
@@ -573,8 +575,10 @@ def rf1(
     gdf_super['alerta_incerteza'] = np.where(gdf_super['confianca_rf_pct'] < 60.0, 'ALTA INCERTEZA', 'CONFIÁVEL')
 
     # =====================================================================
-    # 4. GRÁFICO DE IMPORTÂNCIA DE VARIÁVEIS (ATBD Padrão)
+    # 4. IMPORTÂNCIA DAS VARIÁVEIS (REDUÇÃO MÉDIA DE IMPUREZA)
     # =====================================================================
+    # feature_importances_ expressa a redução média de impureza acumulada
+    # pelas árvores. É uma medida interna do modelo e não implica causalidade.
     importancias = pd.Series(rf_model.feature_importances_, index=colunas_atributos)
     importancias = importancias.sort_values(ascending=False)
 
@@ -665,6 +669,9 @@ def vetor_tif(
     referência espacial (resolução, extensão e projeção), garantindo o
     alinhamento perfeito com os dados originais.
 
+    Esta função não executa generalização espacial. Se necessário, um filtro
+    como o Crivo (Sieve) deve ser aplicado ao raster depois desta etapa.
+
     Args:
         saida_mapa_obia: Caminho do GeoPackage com a classificação vetorial
             (saída de `rf1()`).
@@ -741,11 +748,12 @@ def estatisticas(
     Processa a auditoria espacial, calculando métricas de validação e gerando
     a Matriz de Confusão.
 
-    Lê o CSV de amostras — Ground Truth cruzado com a predição do modelo
-    (colunas 'classe_real' e 'classe_predita1', geradas pela amostragem
-    aleatória estratificada + "Amostrar valores do raster" no QGIS) —,
-    calcula F1-Score, Recall, Precision e o Índice Kappa, exportando um
-    relatório tabular (Excel) e um mapa de calor da matriz de confusão.
+    Lê o CSV com amostras de referência e a respectiva predição do modelo
+    (colunas 'classe_real' e 'classe_predita1'). Essas colunas podem ser
+    obtidas por amostragem aleatória estratificada e pela ferramenta
+    "Amostrar valores do raster" no QGIS. Em seguida, calcula F1-Score,
+    Recall, Precision e o Índice Kappa, exportando um relatório tabular
+    (Excel) e a matriz de confusão.
 
     Args:
         caminho_csv: Arquivo tabular com as colunas 'classe_real' e
@@ -827,7 +835,7 @@ def calcular_areas_finais(
             final.
         caminho_excel_areas: Caminho para salvar a planilha Excel de saída.
         dicionario_classes: Mapeamento opcional de IDs para nomes de classe.
-            Se None, usa as 7 macroclasses do trabalho.
+            Se None, usa as sete classes padrão definidas nesta função.
     """
     print("\n" + "=" * 50)
     print("🌍 CALCULANDO AS ÁREAS DO MAPA FINAL 🌍")

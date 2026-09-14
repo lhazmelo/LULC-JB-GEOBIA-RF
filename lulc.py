@@ -2,7 +2,7 @@
 Pipeline em Python para classificação da cobertura da terra (LULC) por GEOBIA
 + Random Forest, integrando dados ópticos (ortofoto RGB) e estruturais (LiDAR
 aerotransportado). Desenvolvido para o mapeamento da área CLOUD7, no Jardim
-Botânico da UFRRJ (trabalho "lh_final").
+Botânico da UFRRJ.
 
 Cada função é independente, imprime seu progresso e grava seu(s) próprio(s)
 arquivo(s) de saída em disco. Nenhuma delas é executada automaticamente ao
@@ -232,7 +232,7 @@ def _extrair_atributo_raster(
 ) -> pd.DataFrame:
     """
     Lê a banda 1 de um raster (CHM, TRI, Intensidade, MDT...), mascara valores
-    espúrios abaixo de `limiar_nodata` como NaN e calcula a estatística zonal
+    abaixo de `limiar_nodata` como NaN e calcula a estatística zonal
     para cada segmento de `gdf`.
 
     Args:
@@ -408,7 +408,7 @@ def propriedades(
 
     print("\nAnalisando o formato do terreno (Calculando TPI)...")
     # TPI (Weiss, 2001) = altitude do segmento − altitude média dos segmentos
-    # vizinhos que compartilham fronteira (Equação 4 do trabalho). Valores
+    # vizinhos que compartilham fronteira. Valores
     # positivos indicam relevo elevado em relação ao entorno (ex.: dossel
     # arbóreo); valores negativos indicam depressões (ex.: corpos d'água).
     #
@@ -542,7 +542,7 @@ def rf1(
 
     # class_weight='balanced' e os limites de profundidade/folha foram
     # calibrados para reduzir o efeito "sal e pimenta" e compensar o
-    # desbalanceamento de classes minoritárias (ver metodologia do trabalho).
+    # desbalanceamento de classes minoritárias.
     rf_model = RandomForestClassifier(
         n_estimators=500,
         random_state=42,

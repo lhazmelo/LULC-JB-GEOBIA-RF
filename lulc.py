@@ -99,9 +99,10 @@ def _atribuir_classes_treino(
 
     # Une os polígonos de uma mesma classe antes da interseção. Assim, áreas
     # adjacentes com o mesmo rótulo contam como uma única cobertura.
-    treino_por_classe = gdf_treino[['id', 'geometry']].dissolve(
-        by='id',
-        as_index=False
+    treino_por_classe = (
+        gdf_treino[['id', 'geometry']]
+        .rename(columns={'id': 'classe_treino'})
+        .dissolve(by='classe_treino', as_index=False)
     )
 
     intersecoes = gpd.overlay(
@@ -118,7 +119,7 @@ def _atribuir_classes_treino(
 
     if intersecoes.empty:
         return gdf_super.iloc[0:0].assign(
-            id=pd.Series(dtype=gdf_treino['id'].dtype),
+            classe_treino=pd.Series(dtype=gdf_treino['id'].dtype),
             cobertura_treino_pct=pd.Series(dtype=float)
         )
 
@@ -135,7 +136,7 @@ def _atribuir_classes_treino(
     rotulos = (
         intersecoes
         .sort_values(
-            ['id_superpixel', 'area_intersecao', 'id'],
+            ['id_superpixel', 'area_intersecao', 'classe_treino'],
             ascending=[True, False, True]
         )
         .drop_duplicates(subset=['id_superpixel'])
@@ -145,7 +146,7 @@ def _atribuir_classes_treino(
     ]
 
     return gdf_super.merge(
-        rotulos[['id_superpixel', 'id', 'cobertura_treino_pct']],
+        rotulos[['id_superpixel', 'classe_treino', 'cobertura_treino_pct']],
         on='id_superpixel',
         how='inner',
         validate='one_to_one'
@@ -537,7 +538,7 @@ def rf1(
     ]
 
     X_treino = superpixels_treinados[colunas_atributos].fillna(0)
-    y_treino = superpixels_treinados['id']
+    y_treino = superpixels_treinados['classe_treino']
 
     # class_weight='balanced' e os limites de profundidade/folha foram
     # calibrados para reduzir o efeito "sal e pimenta" e compensar o

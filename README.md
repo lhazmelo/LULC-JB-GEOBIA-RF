@@ -40,7 +40,7 @@ permitindo auditar separadamente a predição estatística e a correção físic
 4. seleção das amostras por maior sobreposição espacial e treinamento com
    `rf1(...)`;
 5. rasterização do mapa com `vetor_tif(...)`;
-6. validação independente com `estatisticas(...)`;
+6. validação com amostras de referência por `estatisticas(...)`;
 7. cálculo de áreas por classe com `calcular_areas_finais(...)`.
 
 A parte em Python começa com produtos previamente preparados no
